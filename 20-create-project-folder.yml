@@ -1,0 +1,55 @@
+---
+- name: === Create Shared Folders ===
+  hosts: windows_dc
+  gather_facts: no
+
+  vars:
+    domain_name: "lab.test"
+    domain_name_components: "dc=lab,dc=test"
+    project_folder: "c:\\Projects"
+
+  tasks:
+  - set_fact:
+      project_users: "{{ project_users_textarea.split('\n') }}"
+
+  - name: Query users
+    win_user:
+      state: query
+      name: "{{ item }}"
+    register: verify_result
+    loop: "{{ project_users + [ project_manager ] }}"
+
+  - name: Verify users exist
+    assert:
+      that: "'present' in item.state"
+      quiet: yes
+      fail_msg: "User {{ item.name }} does not exist."
+      success_msg: "Found user {{ item.name }}."
+    loop: "{{ verify_result.results }}"
+    loop_control:
+      label: "{{ item.name }}"
+
+  - set_fact:
+      project_folder_path: "{{ project_folder }}\\{{ project_manager }}{{ project_number }}-{{ project_alias | regex_replace(' ','_') }}"
+
+  - name: Create folder
+    win_file:
+      path: "{{ project_folder_path }}"
+      state: directory
+
+  - name: Set folder ACL
+    win_acl:
+      path: "{{ project_folder_path }}"
+      user: "{{ item }}@{{ domain_name }}"
+      state: present
+      type: allow
+      rights: Read,Write,Modify,FullControl,Delete
+    loop: "{{ project_users + [ project_manager ] }}"
+
+  - name: Share folder
+    win_share:
+      name: "{{ project_manager }}{{ project_number }}-{{ project_alias | regex_replace(' ','_') }}"
+      path: "{{ project_folder_path }}"
+      full: "{{ item }}@{{ domain_name }}"
+      rule_action: add
+    loop: "{{ project_users + [ project_manager ] }}"

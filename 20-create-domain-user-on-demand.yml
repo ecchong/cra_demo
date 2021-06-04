@@ -1,0 +1,43 @@
+---
+- name: === Create User ===
+  hosts: windows_dc
+  gather_facts: no
+
+  vars:
+    domain_name: "lab.test"
+    domain_name_components: "dc=lab,dc=test"
+
+  tasks:
+  - name: Create OU
+    win_shell: |
+      if (! (Get-ADOrganizationalUnit -Filter 'Name -like "{{ ou_name }}"')) {
+        New-ADOrganizationalUnit -Name "{{ ou_name }}"
+        write-output 'created'
+      } else {
+        write-output 'already exists'
+      }
+    register: create_ou
+    changed_when: "'created' in create_ou.stdout"
+
+  - name: Create groups
+    win_domain_group:
+      name: "{{ group_name }}"
+      description: "Group {{ group_name }} created by Ansible"
+      organizational_unit: "ou={{ ou_name }},{{ domain_name_components }}"
+      scope: global
+      state: present
+
+  - name: Create User
+    win_domain_user:
+      name: "{{ user_name }}"
+      firstname: "{{ user_firstname }}"
+      surname: "{{ user_surname }}"
+      upn: "{{ user_name }}@{{ domain_name }}"
+      path: "ou={{ ou_name }},{{ domain_name_components }}"
+      password: "{{ user_password }}"
+      email: "{{ user_name }}@{{ domain_name }}"
+      groups: "{{ group_name }}"
+
+#  - name: Create Folder
+
+#  - name: Set Folder Permissions

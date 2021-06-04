@@ -1,0 +1,6 @@
+---
+- name: === CIS Windows 2016 Remediation ===
+  hosts: windows_client
+  
+  roles:
+  - Windows-2016-CIS
